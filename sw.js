@@ -6,7 +6,7 @@
    apart. Offline edits are queued in localStorage by github.js instead.
    ═══════════════════════════════════════════════════════════════ */
 
-const VERSION = 'setu-v2';
+const VERSION = 'setu-v3';
 const SHELL = [
   './',
   './index.html',

@@ -86,6 +86,21 @@ need a GitHub account — the token is what grants access.
 
 ---
 
+## Letting Revolut fill it in for you
+
+Revolut emails you whenever Aishwaryya sends money. [`automation/`](automation/)
+holds a Google Apps Script that reads those emails and writes the transfer into
+`ledger.json` by itself, once a day, for free — it runs inside your own Google
+account, so no other service ever sees your mail.
+
+It can't know the **£** she sent, because Revolut only tells the recipient what
+landed. So imported entries show **Add £** until she fills that in from her
+phone, and are left out of the rate chart until she does.
+
+Setup is about ten minutes: [automation/README.md](automation/README.md).
+
+---
+
 ## Editing the app later
 
 Change the files in this folder, then in GitHub Desktop: **Commit to main** →

@@ -273,7 +273,11 @@ function entryRow(item) {
         </span>
         <span class="row-right">
           <span class="row-amount is-in num">+${inr(item.receivedINR)}</span>
-          ${item.sentGBP ? `<span class="row-side num">₹${(item.receivedINR / item.sentGBP).toFixed(1)}/£</span>` : ''}
+          ${item.sentGBP
+            ? `<span class="row-side num">₹${(item.receivedINR / item.sentGBP).toFixed(1)}/£</span>`
+            // An auto-imported transfer has no £ side yet — the email never carries it.
+            // Hand-entered ones stay unmarked: leaving the £ out was a choice there.
+            : item.source ? '<span class="row-side needs">Add £</span>' : ''}
         </span>
       </button>`;
   }
@@ -937,7 +941,9 @@ function openDetailSheet(id, kind) {
       <div class="kv"><dt>Date</dt><dd>${prettyDate(item.date)}</dd></div>
       ${isIn && item.sentGBP ? `
         <div class="kv"><dt>Sent</dt><dd class="num">${gbp(item.sentGBP)}</dd></div>
-        <div class="kv"><dt>Effective rate</dt><dd class="num">₹${rate.toFixed(2)} per £</dd></div>` : ''}
+        <div class="kv"><dt>Effective rate</dt><dd class="num">₹${rate.toFixed(2)} per £</dd></div>`
+      : isIn && item.source ? `
+        <div class="kv"><dt>Sent</dt><dd class="needs">Not recorded — tap Edit to add it</dd></div>` : ''}
       ${pu ? `<div class="kv"><dt>${isIn ? 'Earmarked for' : 'Spent from'}</dt>
         <dd>${esc(pu.name)}${isIn && a ? ` · ${inr(a.amountINR)}` : ''}</dd></div>` : ''}
       ${!isIn ? `<div class="kv"><dt>Category</dt><dd>${esc(c?.name || 'Other')}</dd></div>` : ''}

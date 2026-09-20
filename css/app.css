@@ -407,6 +407,8 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .row-amount.is-in  { color: var(--in-text); }
 .row-amount.is-out { color: var(--ink); }
 .row-side { display: block; font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+/* An auto-imported transfer still waiting on its £ side. */
+.row-side.needs { color: var(--accent); font-weight: 600; }
 
 /* Full-bleed background via negative margins, so rows scroll cleanly underneath. */
 .month-head {
@@ -655,6 +657,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .kv dt { color: var(--ink-2); flex: none; }
 .kv dd { margin: 0; text-align: right; font-weight: 550; min-width: 0;
   overflow-wrap: anywhere; }
+.kv dd.needs { color: var(--accent); }
 
 /* ═══════════════════════════ settings ═══════════════════════════ */
 
