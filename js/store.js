@@ -3,7 +3,7 @@
 
    Mutations are modelled as *ops* rather than direct edits. An op can be
    replayed onto a freshly fetched ledger, which is what makes conflict
-   resolution work: if she saved while you were offline, we re-fetch her
+   resolution work: if Aishwaryya saved while you were offline, we re-fetch her
    version and replay your op on top instead of overwriting her.
    ═══════════════════════════════════════════════════════════════ */
 
@@ -16,7 +16,7 @@ export const LS = {
   queue: 'setu.queue',
 };
 
-export const PEOPLE = ['Adithya', 'Sister'];
+export const PEOPLE = ['Adithya', 'Aishwaryya'];
 export const METHODS = ['Wise', 'Remitly', 'Revolut', 'Bank', 'Other'];
 
 /* Category colours use the validated categorical slots in fixed order.

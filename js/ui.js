@@ -506,7 +506,7 @@ function viewPurposes() {
         </button>`;
     }).join('')}</div>`
     : `<div class="card" style="margin-top:12px">${emptyState('flag', 'No purposes yet',
-        'When she says “this is for Rakhi”, make a purpose and tag the transfer to it.')}</div>`}
+        'When Aishwaryya says “this is for Rakhi”, make a purpose and tag the transfer to it.')}</div>`}
   `;
 }
 

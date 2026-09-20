@@ -1,7 +1,7 @@
 # Setu
 
 A small private ledger for money sent between two people in two countries.
-She sends pounds, you receive rupees, and both of you can see where it all went.
+Aishwaryya sends pounds, you receive rupees, and both of you can see where it all went.
 
 It is a web page you add to your iPhone home screen, so it behaves like an app
 without going anywhere near the App Store.
@@ -67,7 +67,7 @@ Copy the `github_pat_…` string — GitHub shows it only once.
 Open the site in **Safari**, enter `your-username/setu-data` and the token, choose
 who you are, and tap **Connect**. Then **Share → Add to Home Screen**.
 
-Send the link and the token to the other person so they can do the same. They do not
+Send the link and the token to Aishwaryya so she can do the same. She does not
 need a GitHub account — the token is what grants access.
 
 ---

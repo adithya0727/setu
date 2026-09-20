@@ -5,7 +5,7 @@
    history doubles as a free, timestamped audit log of the whole ledger.
 
    Concurrency: GitHub's contents API is optimistically concurrent. We send the
-   `sha` of the blob we read; if the file moved on underneath us (she saved
+   `sha` of the blob we read; if the file moved on underneath us (Aishwaryya saved
    first) GitHub replies 409 and we re-fetch, replay our queued ops on top of
    her version, and try again. Nobody's entry is lost.
    ═══════════════════════════════════════════════════════════════ */
