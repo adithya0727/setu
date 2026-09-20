@@ -136,6 +136,17 @@ Setup is about ten minutes: [automation/README.md](automation/README.md).
 
 ---
 
+## Checking it still works
+
+There is no build step and no framework, so the checks are just node:
+
+```
+node test/sync.test.mjs           # an entry saved mid-push must not be lost
+node automation/test/parse.test.js  # the Revolut email parser
+```
+
+---
+
 ## Editing the app later
 
 Change the files in this folder, then in GitHub Desktop: **Commit to main** →

@@ -167,7 +167,10 @@ export const local = {
     try { return normalise(JSON.parse(localStorage.getItem(LS.cache))); }
     catch { return null; }
   },
-  set ledger(l) { localStorage.setItem(LS.cache, JSON.stringify(l)); },
+  set ledger(l) {
+    // Only a cache: if the store is full or blocked, carry on without it.
+    try { localStorage.setItem(LS.cache, JSON.stringify(l)); } catch { /* not fatal */ }
+  },
 
   get sha() { return localStorage.getItem(LS.sha) || null; },
   set sha(s) { s ? localStorage.setItem(LS.sha, s) : localStorage.removeItem(LS.sha); },
@@ -185,7 +188,19 @@ export const local = {
  * Pull the remote ledger, replay anything queued locally, and push if needed.
  * Returns the ledger that is now authoritative.
  */
-export async function sync({ push = true } = {}) {
+export function sync(opts = {}) {
+  /* Serialised deliberately. Two overlapping syncs read the same queue, and
+     whichever finished second would trim it by its own stale snapshot length
+     — dropping entries the first had never pushed. */
+  const run = () => pushAndPull(opts);
+  const next = chain.then(run, run);
+  chain = next.catch(() => { /* a failed sync must not stall the next one */ });
+  return next;
+}
+
+let chain = Promise.resolve();
+
+async function pushAndPull({ push = true } = {}) {
   let attempt = 0;
 
   // A repo that was private when it was connected can be made public later, and
@@ -212,10 +227,18 @@ export async function sync({ push = true } = {}) {
 
     try {
       const newSha = await writeLedger(merged, sha, message);
-      local.ledger = merged;
+
+      /* Saving is instant but pushing is not, and someone can add a second
+         entry while the first is still in the air. The queue only ever grows
+         at the end, so dropping exactly what we pushed leaves anything newer
+         intact — clearing it outright silently threw those entries away. */
+      const pending = local.queue.slice(queue.length);
+      const authoritative = pending.length ? applyOps(merged, pending) : merged;
+
       local.sha = newSha;
-      local.queue = [];
-      return merged;
+      local.queue = pending;
+      local.ledger = authoritative;
+      return authoritative;
     } catch (err) {
       // Someone saved between our read and our write. Re-read and replay.
       if (err.code === 'conflict' && attempt++ < 3) continue;

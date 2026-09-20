@@ -61,6 +61,11 @@ export function normalise(l) {
     if (!Array.isArray(t.allocations)) t.allocations = [];
     t.sentGBP     = num(t.sentGBP);
     t.receivedINR = num(t.receivedINR);
+    // A string here would turn `total += amount` into string concatenation and
+    // quietly corrupt every figure downstream.
+    t.allocations = t.allocations
+      .filter(a => a && typeof a === 'object')
+      .map(a => ({ ...a, amountINR: num(a.amountINR) }));
   }
   for (const e of out.expenses) e.amountINR = num(e.amountINR);
   return out;
@@ -194,7 +199,7 @@ export function monthlyTotals(l, months = 6) {
   }
   return keys.map(k => ({
     key: k,
-    label: new Date(k + '-01').toLocaleDateString('en-GB', { month: 'short' }),
+    label: new Date(k + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'short' }),
     in:  sum(l.transfers.filter(t => monthKey(t.date) === k), t => t.receivedINR),
     out: sum(l.expenses.filter(e => monthKey(e.date) === k), e => e.amountINR),
   }));

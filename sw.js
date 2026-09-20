@@ -6,7 +6,7 @@
    apart. Offline edits are queued in localStorage by github.js instead.
    ═══════════════════════════════════════════════════════════════ */
 
-const VERSION = 'setu-v6';
+const VERSION = 'setu-v7';
 const SHELL = [
   './',
   './index.html',
@@ -50,8 +50,12 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     fetch(e.request)
       .then(res => {
-        const copy = res.clone();
-        caches.open(VERSION).then(c => c.put(e.request, copy)).catch(() => {});
+        // Never cache a failure. A transient 404 or 502 from Pages would
+        // otherwise be served from the cache until the next version bump.
+        if (res.ok && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(VERSION).then(c => c.put(e.request, copy)).catch(() => {});
+        }
         return res;
       })
       .catch(() => caches.match(e.request).then(hit => hit || caches.match('./index.html')))
