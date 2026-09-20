@@ -462,11 +462,20 @@ function filteredFeed() {
       ? i.purposeId === id
       : (i.allocations || []).some(a => a.purposeId === id));
   }
-  const q = S.query.trim().toLowerCase();
+  /* Search what someone can actually see on the row: the note, the category or
+     method, the purpose it is tagged to, and the amount — typed with or without
+     the separators the app itself prints. */
+  const q = S.query.trim().toLowerCase().replace(/[,₹£\s]/g, '');
   if (q) {
     items = items.filter(i => {
-      const c = i.kind === 'out' ? cat(i.categoryId)?.name : i.method;
-      return `${i.note || ''} ${c || ''}`.toLowerCase().includes(q);
+      const isIn = i.kind === 'in';
+      const label = isIn ? i.method : cat(i.categoryId)?.name;
+      const pu = isIn
+        ? (i.allocations || []).map(a => purpose(a.purposeId)?.name).filter(Boolean).join(' ')
+        : purpose(i.purposeId)?.name;
+      const amount = isIn ? i.receivedINR : i.amountINR;
+      return [i.note, label, pu, amount, isIn ? i.sentGBP : '', i.addedBy]
+        .filter(Boolean).join(' ').toLowerCase().replace(/[,₹£\s]/g, '').includes(q);
     });
   }
   return items;
