@@ -407,7 +407,11 @@ function viewHome() {
       <div class="hero-amount num">${inr(t.balance)}</div>
       <p class="hero-sub">${rate
         ? `≈ ${gbp(t.balance / rate)} at ₹${rate.toFixed(2)} to the pound`
-        : 'Add a transfer to start tracking.'}</p>
+        // Transfers with no £ side can't say anything about pounds, but telling
+        // someone to "add a transfer" when they have several is just wrong.
+        : S.ledger.transfers.length
+          ? 'Add the £ sent to a transfer to see this in pounds.'
+          : 'Add a transfer to start tracking.'}</p>
       <div class="hero-foot">
         <div class="hero-stat is-in">
           <div class="hero-stat-k">In this month</div>
