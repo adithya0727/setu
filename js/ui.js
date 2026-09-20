@@ -9,6 +9,7 @@ import {
 } from './store.js';
 import { cfg, local, sync, commit, verifyAccess, pendingCount } from './github.js';
 import { renderMonthlyChart, renderRateChart } from './charts.js';
+import { buildStatement, statementFilename } from './statement.js';
 
 /* ─────────────────────────── icons ─────────────────────────── */
 
@@ -38,7 +39,25 @@ const ICONS = {
   search:  '<circle cx="11" cy="11" r="6.2"/><path d="m15.6 15.6 4.6 4.6"/>',
   plus:    '<path d="M12 5.2v13.6"/><path d="M5.2 12h13.6"/>',
   check:   '<path d="m5 12.6 4.6 4.6L19 7.4"/>',
+
+  /* Offered when naming your own category. `tag` leads the list and is the
+     default: it reads as "a thing" without claiming to be any thing. */
+  tag:     '<path d="M3.8 4.6a.8.8 0 0 1 .8-.8h6.3a1.2 1.2 0 0 1 .85.35l8 8a1.2 1.2 0 0 1 0 1.7l-5.75 5.75a1.2 1.2 0 0 1-1.7 0l-8-8a1.2 1.2 0 0 1-.35-.85z"/><circle cx="7.6" cy="7.6" r="1.5"/>',
+  car:     '<path d="M3.6 16.6v-3.4l1.8-4.4a1.6 1.6 0 0 1 1.5-1h10.2a1.6 1.6 0 0 1 1.5 1l1.8 4.4v3.4"/><path d="M3.6 13.2h16.8"/><circle cx="7.4" cy="16.8" r="1.5"/><circle cx="16.6" cy="16.8" r="1.5"/>',
+  phone:   '<rect x="6.6" y="2.8" width="10.8" height="18.4" rx="2.4"/><path d="M10.7 5.6h2.6"/><path d="M10.9 18.3h2.2"/>',
+  shirt:   '<path d="M8.6 3.4 12 5.7l3.4-2.3 4.6 2.6-2 3.9-1.6-.9v11.9H7.6V9l-1.6.9-2-3.9z"/>',
+  pill:    '<rect x="2.6" y="9" width="18.8" height="6" rx="3" transform="rotate(-45 12 12)"/><path d="M9.2 9.2 14.8 14.8"/>',
+  gym:     '<path d="M3.2 9.6v4.8M6.4 7.4v9.2M17.6 7.4v9.2M20.8 9.6v4.8"/><path d="M6.4 12h11.2"/>',
+  tools:   '<path d="M19.8 6.4a4.6 4.6 0 0 1-6 6L6.4 19.8a1.8 1.8 0 0 1-2.6-2.6l7.4-7.4a4.6 4.6 0 0 1 6-6l-3 3 2.6 2.6z"/>',
+  pet:     '<circle cx="7.4" cy="9.6" r="1.8"/><circle cx="12" cy="7.6" r="1.8"/><circle cx="16.6" cy="9.6" r="1.8"/><path d="M12 12.4c3 0 5 2.2 5 4.3a2.5 2.5 0 0 1-2.5 2.5c-1 0-1.6-.5-2.5-.5s-1.5.5-2.5.5A2.5 2.5 0 0 1 7 16.7c0-2.1 2-4.3 5-4.3z"/>',
+  school:  '<path d="M12 4.2 21.8 9 12 13.8 2.2 9z"/><path d="M6.6 11.2v4.5c0 1.5 2.4 2.7 5.4 2.7s5.4-1.2 5.4-2.7v-4.5"/>',
 };
+
+/* Order matters: this is the order they appear in the picker. */
+const CATEGORY_ICONS = [
+  'tag', 'home', 'cup', 'gift', 'heart', 'book', 'plane', 'bolt', 'bank', 'sparkle',
+  'car', 'phone', 'shirt', 'pill', 'gym', 'tools', 'pet', 'school', 'dots',
+];
 
 const icon = (name, cls = '') =>
   `<svg viewBox="0 0 24 24" class="ico ${cls}" aria-hidden="true">${
@@ -59,6 +78,42 @@ const tint = key => `--tint:color-mix(in oklab, var(--${ckey(key)}) 17%, transpa
 const dotOf = key => `background:var(--${ckey(key)})`;
 
 function haptic() { try { navigator.vibrate?.(8); } catch { /* not supported */ } }
+
+/* ─────────────────────────── theme ───────────────────────────
+   Kept out of the cfg keys on purpose: disconnecting a device should erase
+   what is private to it, not which colours someone prefers to read in. */
+
+const THEME_KEY = 'setu.theme';
+const THEMES = ['auto', 'light', 'dark'];
+const lightQuery = window.matchMedia('(prefers-color-scheme: light)');
+
+function themePref() {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    return THEMES.includes(t) ? t : 'auto';
+  } catch { return 'auto'; }
+}
+
+function applyTheme() {
+  const pref = themePref();
+  const effective = pref === 'auto' ? (lightQuery.matches ? 'light' : 'dark') : pref;
+  document.documentElement.dataset.theme = effective;
+
+  // The two media-scoped metas in the HTML can't know about a forced theme —
+  // they would tint the status bar for the device's preference, not ours.
+  document.head.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove());
+  const meta = document.createElement('meta');
+  meta.setAttribute('name', 'theme-color');
+  meta.setAttribute('content', effective === 'light' ? '#F4F5F8' : '#0B0D10');
+  document.head.appendChild(meta);
+}
+
+function setTheme(pref) {
+  try { localStorage.setItem(THEME_KEY, pref); } catch { /* private mode */ }
+  applyTheme();
+}
+
+lightQuery.addEventListener('change', () => { if (themePref() === 'auto') applyTheme(); });
 
 let toastTimer;
 function toast(msg, bad = false) {
@@ -645,10 +700,17 @@ function openSheet(html, onMount) {
   const gen = ++sheetGen;
 
   body.innerHTML = html;
-  body.scrollTop = 0;
   sheet.hidden = false; scrim.hidden = false;
   sheet.style.transform = '';
-  requestAnimationFrame(() => { sheet.classList.add('on'); scrim.classList.add('on'); });
+
+  // Every sheet opens at the top. This has to come after the sheet is visible:
+  // setting scrollTop on a display:none subtree is silently ignored, which is
+  // why sheets used to reopen wherever they were last left.
+  body.scrollTop = 0;
+  requestAnimationFrame(() => {
+    body.scrollTop = 0;
+    sheet.classList.add('on'); scrim.classList.add('on');
+  });
 
   const close = () => {
     // A close captured by the previous sheet's handlers must not close this one.
@@ -699,12 +761,17 @@ function openSheet(html, onMount) {
 
 /* ─────────────────── add / edit entry ─────────────────── */
 
-function openEntrySheet(existing = null, kind = 'in') {
-  const d = existing ? draftFrom(existing, kind) : {
+/**
+ * `resume` carries a half-typed entry back after a detour into the category
+ * editor — only one sheet exists, so making a category means leaving this one,
+ * and losing what had been typed would be its own small betrayal.
+ */
+function openEntrySheet(existing = null, kind = 'in', resume = null) {
+  const d = resume || (existing ? draftFrom(existing, kind) : {
     kind, id: null, inr: '', gbp: '', alloc: '',
     active: 'inr', date: today(), method: 'Wise',
     categoryId: 'c_household', purposeId: null, note: '',
-  };
+  });
 
   openSheet(`
     <h2 class="sheet-title">${existing ? 'Edit entry' : 'New entry'}</h2>
@@ -802,13 +869,16 @@ function entryBody(d) {
 
     ${!isIn ? `
       <div class="f-block">
-        <div class="f-label">Category</div>
+        <div class="f-label">Category <button type="button" class="opt opt-btn" data-manage-cats>Manage</button></div>
         <div class="grid-pick" id="cats">
           ${S.ledger.categories.map(c => `
             <button type="button" class="pick ${d.categoryId === c.id ? 'on' : ''}"
                     data-cat="${esc(c.id)}" style="--tint:var(--${ckey(c.color)})">
               ${icon(c.icon)}<span>${esc(c.name)}</span>
             </button>`).join('')}
+          <button type="button" class="pick pick-new" data-new-cat>
+            ${icon('plus')}<span>Custom</span>
+          </button>
         </div>
       </div>` : `
       <div class="f-block">
@@ -897,6 +967,15 @@ function wireEntryBody(d, paint, close, existing) {
   body.querySelectorAll('[data-cat]').forEach(n => n.addEventListener('click', () => {
     d.categoryId = n.dataset.cat; haptic(); paint();
   }));
+
+  const leaveFor = open => {
+    close();
+    setTimeout(() => open({ d, kind: d.kind, existing }), 260);
+  };
+  body.querySelector('[data-new-cat]')?.addEventListener('click',
+    () => leaveFor(back => openCategoryEditSheet(null, back)));
+  body.querySelector('[data-manage-cats]')?.addEventListener('click',
+    () => leaveFor(back => openCategoryListSheet(back)));
   body.querySelectorAll('[data-method]').forEach(n => n.addEventListener('click', () => {
     d.method = n.dataset.method; haptic(); paint();
   }));
@@ -1056,13 +1135,13 @@ function openPurposeSheet(id) {
   });
 }
 
-const PURPOSE_COLORS = ['c5', 'c4', 'c1', 'c3', 'c7', 'c2', 'c8', 'c6'];
+const PICK_COLORS = ['c5', 'c4', 'c1', 'c3', 'c7', 'c2', 'c8', 'c6'];
 
 function openPurposeEditSheet(id) {
   const existing = id ? purpose(id) : null;
   const d = {
     name: existing?.name || '',
-    color: existing?.color || PURPOSE_COLORS[S.ledger.purposes.length % PURPOSE_COLORS.length],
+    color: existing?.color || PICK_COLORS[S.ledger.purposes.length % PICK_COLORS.length],
   };
 
   openSheet(`
@@ -1077,7 +1156,7 @@ function openPurposeEditSheet(id) {
     <div class="f-block">
       <div class="f-label">Colour</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap" id="p-colors">
-        ${PURPOSE_COLORS.map(c => `
+        ${PICK_COLORS.map(c => `
           <button type="button" data-color="${c}" aria-label="${c}"
             style="width:38px;height:38px;border-radius:12px;background:var(--${ckey(c)});
                    border:2.5px solid ${c === d.color ? 'var(--ink)' : 'transparent'}"></button>`).join('')}
@@ -1120,6 +1199,132 @@ function openPurposeEditSheet(id) {
   });
 }
 
+/* ─────────────────── categories ───────────────────
+   Reached from the spend sheet rather than from Settings: a category is
+   something you need at the moment you are naming a purchase, not something
+   you go and administer beforehand. `back` carries the half-typed entry. */
+
+function resumeEntry(back, categoryId) {
+  if (!back) return;
+  const d = categoryId ? { ...back.d, categoryId } : back.d;
+  setTimeout(() => openEntrySheet(back.existing, back.kind, d), 260);
+}
+
+function openCategoryListSheet(back) {
+  openSheet(`
+    <h2 class="sheet-title">Categories</h2>
+    <div class="card">
+      ${S.ledger.categories.map(c => `
+        <button type="button" class="set-row" data-edit-cat="${esc(c.id)}">
+          <span class="row-icon" style="${tint(c.color)}">${icon(c.icon)}</span>
+          <div class="set-row-main"><div class="set-row-t">${esc(c.name)}</div></div>
+          ${icon('chev', 'chev')}
+        </button>`).join('')}
+    </div>
+
+    <div class="sheet-actions">
+      <button type="button" class="btn-ghost" id="cl-back">Back</button>
+      <button type="button" class="btn-primary" id="cl-new">New category</button>
+    </div>
+  `, close => {
+    $('#cl-back').addEventListener('click', () => { close(); resumeEntry(back); });
+    $('#cl-new').addEventListener('click', () => { close(); setTimeout(() => openCategoryEditSheet(null, back), 260); });
+    $('#sheet-body').querySelectorAll('[data-edit-cat]').forEach(n =>
+      n.addEventListener('click', () => {
+        close();
+        setTimeout(() => openCategoryEditSheet(n.dataset.editCat, back), 260);
+      }));
+  });
+}
+
+function openCategoryEditSheet(id, back) {
+  const existing = id ? cat(id) : null;
+  const d = {
+    name: existing?.name || '',
+    icon: existing?.icon || 'tag',
+    color: existing?.color || PICK_COLORS[S.ledger.categories.length % PICK_COLORS.length],
+  };
+  // Everything can point at c_other when its own category goes, so it is the
+  // one that has to stay.
+  const removable = existing && existing.id !== 'c_other';
+
+  openSheet(`
+    <h2 class="sheet-title">${existing ? 'Edit category' : 'New category'}</h2>
+
+    <div class="f-block" style="margin-top:0">
+      <div class="f-label">Name</div>
+      <input type="text" class="f-input" id="c-name" value="${esc(d.name)}"
+             placeholder="e.g. Rent, Tuition, Repairs" maxlength="24">
+    </div>
+
+    <div class="f-block">
+      <div class="f-label">Icon</div>
+      <div class="icon-pick" id="c-icons" style="--tint:var(--${ckey(d.color)})">
+        ${CATEGORY_ICONS.map(n => `
+          <button type="button" data-icon="${n}" aria-label="${n}"
+                  class="${n === d.icon ? 'on' : ''}">${icon(n)}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="f-block">
+      <div class="f-label">Colour</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap" id="c-colors">
+        ${PICK_COLORS.map(c => `
+          <button type="button" data-color="${c}" aria-label="${c}"
+            style="width:38px;height:38px;border-radius:12px;background:var(--${ckey(c)});
+                   border:2.5px solid ${c === d.color ? 'var(--ink)' : 'transparent'}"></button>`).join('')}
+      </div>
+    </div>
+
+    <div class="sheet-actions">
+      <button type="button" class="btn-ghost" id="c-cancel">Cancel</button>
+      <button type="button" class="btn-primary" id="c-save">${existing ? 'Save' : 'Create'}</button>
+    </div>
+    ${removable ? `<button type="button" class="btn-ghost btn-danger btn-wide" id="c-del">Delete category</button>` : ''}
+  `, close => {
+    const nameEl = $('#c-name');
+    const icons = $('#c-icons');
+
+    icons.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      d.icon = b.dataset.icon;
+      [...icons.children].forEach(c => c.classList.toggle('on', c === b));
+      haptic();
+    });
+
+    $('#c-colors').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      d.color = b.dataset.color;
+      [...b.parentNode.children].forEach(c =>
+        c.style.borderColor = c === b ? 'var(--ink)' : 'transparent');
+      icons.style.setProperty('--tint', `var(--${ckey(d.color)})`);
+      haptic();
+    });
+
+    $('#c-cancel').addEventListener('click', () => { close(); resumeEntry(back); });
+
+    $('#c-del')?.addEventListener('click', () => {
+      if (!confirm(`Delete “${existing.name}”? Anything spent under it moves to Other — no entry is deleted.`)) return;
+      save({ type: 'delete', entity: 'category', id });
+      close();
+      toast('Category deleted');
+      resumeEntry(back, 'c_other');
+    });
+
+    $('#c-save').addEventListener('click', () => {
+      const name = nameEl.value.trim();
+      if (!name) return toast('Give the category a name', true);
+      const newId = id || uid('c');
+      save({ type: 'upsert', entity: 'category', data: { id: newId, name, icon: d.icon, color: d.color } });
+      close();
+      toast(existing ? 'Category updated' : 'Category added');
+      resumeEntry(back, newId);
+    });
+
+    if (!existing) setTimeout(() => nameEl.focus(), 420);
+  });
+}
+
 /* ─────────────────── settings ─────────────────── */
 
 function openSettingsSheet() {
@@ -1136,6 +1341,15 @@ function openSettingsSheet() {
     </div>
 
     <div class="f-block">
+      <div class="f-label">Appearance</div>
+      <div class="seg" id="s-theme">
+        ${THEMES.map(t => `<button type="button" class="${themePref() === t ? 'on' : ''}" data-t="${t}">${
+          t === 'auto' ? 'Auto' : t === 'light' ? 'Light' : 'Dark'}</button>`).join('')}
+      </div>
+      <p class="set-note" style="padding-left:0">Auto follows your phone. This device only.</p>
+    </div>
+
+    <div class="f-block">
       <div class="f-label">Sync</div>
       <div class="card">
         <div class="set-row">
@@ -1148,10 +1362,17 @@ function openSettingsSheet() {
           <div class="set-row-main"><div class="set-row-t">Sync now</div></div>
           ${icon('chev', 'chev')}
         </button>
+        <button type="button" class="set-row" id="s-statement">
+          <div class="set-row-main">
+            <div class="set-row-t">Download a statement</div>
+            <div class="set-row-s">Every figure laid out, ready to read or print</div>
+          </div>
+          ${icon('chev', 'chev')}
+        </button>
         <button type="button" class="set-row" id="s-export">
           <div class="set-row-main">
-            <div class="set-row-t">Export a copy</div>
-            <div class="set-row-s">Download ledger.json to this device</div>
+            <div class="set-row-t">Export the raw data</div>
+            <div class="set-row-s">ledger.json, for keeping or restoring</div>
           </div>
           ${icon('chev', 'chev')}
         </button>
@@ -1206,13 +1427,23 @@ function openSettingsSheet() {
       if (!S.error) toast('Up to date');
     });
 
-    $('#s-export').addEventListener('click', () => {
-      const blob = new Blob([JSON.stringify(S.ledger, null, 2)], { type: 'application/json' });
+    const download = (text, type, name) => {
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `setu-ledger-${today()}.json`;
+      a.href = URL.createObjectURL(new Blob([text], { type }));
+      a.download = name;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+
+    $('#s-statement').addEventListener('click', () => {
+      download(buildStatement(S.ledger, { generated: today() }),
+        'text/html', statementFilename(today()));
+      toast('Statement downloaded');
+    });
+
+    $('#s-export').addEventListener('click', () => {
+      download(JSON.stringify(S.ledger, null, 2) + '\n',
+        'application/json', `setu-ledger-${today()}.json`);
     });
 
     $('#s-out').addEventListener('click', () => {
@@ -1223,6 +1454,13 @@ function openSettingsSheet() {
       if (!confirm(warn + 'Disconnect this device?')) return;
       cfg.clear();
       location.reload();
+    });
+
+    $('#s-theme').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      setTheme(b.dataset.t);
+      [...b.parentNode.children].forEach(c => c.classList.toggle('on', c === b));
+      haptic();
     });
 
     $('#s-close').addEventListener('click', close);
@@ -1241,4 +1479,5 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => { /* offline support is optional */ }));
 }
 
+applyTheme();
 boot();

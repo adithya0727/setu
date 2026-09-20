@@ -142,6 +142,15 @@ export function totals(l) {
   const received = sum(l.transfers, t => t.receivedINR);
   const sentGBP  = sum(l.transfers, t => t.sentGBP);
   const spent    = sum(l.expenses,  e => e.amountINR);
+
+  /* A rate can only be read off a transfer where both sides were recorded.
+     Dividing everything received by whatever pounds happen to be on file
+     inflates it by however much arrived without a £ amount — which is every
+     transfer the Revolut importer creates, since that email only ever states
+     the rupees. */
+  const paired = l.transfers.filter(t => t.sentGBP > 0 && t.receivedINR > 0);
+  const pairedINR = sum(paired, t => t.receivedINR);
+  const pairedGBP = sum(paired, t => t.sentGBP);
   const allocated = sum(l.transfers, t => sum(t.allocations || [], a => a.amountINR));
   const spentTagged = sum(l.expenses.filter(e => e.purposeId), e => e.amountINR);
 
@@ -151,7 +160,10 @@ export function totals(l) {
     allocated,
     // What's free to spend on anything: unallocated money, less untagged spending.
     general: (received - allocated) - (spent - spentTagged),
-    rate: sentGBP > 0 ? received / sentGBP : 0,
+    rate: pairedGBP > 0 ? pairedINR / pairedGBP : 0,
+    pairedGBP,
+    // Transfers still waiting on their £ side, and so absent from the rate.
+    unpaired: l.transfers.length - paired.length,
   };
 }
 
