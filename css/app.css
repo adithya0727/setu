@@ -96,6 +96,10 @@
   --shadow-lift: 0 2px 8px rgba(15,19,25,.09), 0 20px 52px rgba(15,19,25,.14);
 }
 
+/* ═══════════════════════════ base ═══════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
 html, body {
   margin: 0; padding: 0;
   height: 100%;

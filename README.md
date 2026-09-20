@@ -141,9 +141,14 @@ Setup is about ten minutes: [automation/README.md](automation/README.md).
 There is no build step and no framework, so the checks are just node:
 
 ```
-node test/sync.test.mjs           # an entry saved mid-push must not be lost
+node test/css.test.mjs              # the stylesheet still has the rules everything leans on
+node test/sync.test.mjs             # an entry saved mid-push must not be lost
 node automation/test/parse.test.js  # the Revolut email parser
 ```
+
+The CSS one exists because a stylesheet can lose a whole rule and still look
+balanced to a brace counter. That is how the global `box-sizing` reset went
+missing once, which quietly inflated every element in the app.
 
 ---
 
