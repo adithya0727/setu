@@ -123,16 +123,35 @@ async function writeLedger(ledger, sha, message) {
   return res.content.sha;
 }
 
-/** Confirms the repo is reachable and writable before we let someone in. */
+let visibilityChecked = false;
+
+/**
+ * The repo has to be private, reachable and writable before we let someone in.
+ *
+ * The privacy check is the important one. Nothing else in this app can tell a
+ * private repo from a public one, and pointing it at a public repo would
+ * publish every figure to the world quietly and irreversibly — the history
+ * would keep them even after the file was deleted.
+ */
+async function assertUsable(meta) {
+  if (meta.private !== true) {
+    throw new SyncError('public',
+      `${meta.full_name || 'That repository'} is public. Everything you record would be readable by anyone, ` +
+      'and deleting it later would not remove it from the history. Make the repo private before connecting.');
+  }
+  if (!meta.permissions?.push) {
+    throw new SyncError('scope', 'This token can read the repo but not write to it. Set Contents to “Read and write”.');
+  }
+}
+
+/** Confirms the repo is private, reachable and writable before we let someone in. */
 export async function verifyAccess(repo, token) {
   const prev = { r: cfg.repo, t: cfg.token };
   localStorage.setItem(LS.repo, repo.trim().replace(/^\/+|\/+$/g, ''));
   localStorage.setItem(LS.token, token.trim());
   try {
-    const meta = await call(`/repos/${cfg.repo}`);
-    if (!meta.permissions?.push) {
-      throw new SyncError('scope', 'This token can read the repo but not write to it. Set Contents to “Read and write”.');
-    }
+    await assertUsable(await call(`/repos/${cfg.repo}`));
+    visibilityChecked = true;
     return true;
   } catch (err) {
     localStorage.setItem(LS.repo, prev.r);
@@ -168,6 +187,13 @@ export const local = {
  */
 export async function sync({ push = true } = {}) {
   let attempt = 0;
+
+  // A repo that was private when it was connected can be made public later, and
+  // nothing would otherwise notice. Cheap enough to confirm once per launch.
+  if (!visibilityChecked) {
+    await assertUsable(await call(`/repos/${cfg.repo}`));
+    visibilityChecked = true;
+  }
 
   while (true) {
     const { ledger: remote, sha } = await readLedger();

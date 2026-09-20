@@ -57,25 +57,42 @@ paste in the whole of [`setu-revolut.gs`](setu-revolut.gs). Save.
 
 ### 3. Give it the repo and the token
 
-Find `setUp()` near the top. Fill in the two empty strings:
+**Not in the code.** Go to **Project Settings** (the gear in the left sidebar)
+→ scroll to **Script properties** → **Add script property**, twice:
 
-```js
-const repo  = 'your-username/setu-data';
-const token = 'github_pat_…';
+| Property | Value |
+|---|---|
+| `SETU_REPO` | `your-username/setu-data` |
+| `SETU_TOKEN` | `github_pat_…` |
+
+**Save script properties.**
+
+The token never belongs in the script itself. This file lives in a public repo,
+and a secret pasted into code is one careless commit away from being world
+readable — permanently, because git keeps it even after you delete the line.
+Script Properties are private to your Google account and are not part of the
+code.
+
+### 4. Confirm it's wired up
+
+Pick **checkSetup** from the function dropdown and press **Run**.
+
+Google will ask for permission the first time, and will warn you that the app
+isn't verified — expected, because the "app" is a script you pasted in two
+minutes ago. Click **Advanced** → **Go to Setu importer (unsafe)** → **Allow**.
+You are granting it to yourself.
+
+The **Execution log** should say:
+
+```
+your-username/setu-data is private, and the token can write to it. Now run dryRun().
 ```
 
-Pick `setUp` from the function dropdown and press **Run**.
+If it says the repo is **PUBLIC**, stop and fix that before going any further —
+a public `setu-data` means every figure in the ledger is readable by anyone who
+finds it, and deleting the file later won't remove it from the history.
 
-Google will ask for permission, and will warn you that the app isn't verified —
-which is expected, because the "app" is a script you wrote this minute. Click
-**Advanced** → **Go to Setu importer (unsafe)** → **Allow**. You are granting it
-to yourself.
-
-**Then blank those two strings out again.** From this point the values live in
-the project's Script Properties, which is why nothing secret ever appears in
-this public repo. Don't paste the token into the copy of the file kept here.
-
-### 4. Check it before it writes anything
+### 5. Check it before it writes anything
 
 Run **`dryRun`**. It reads and parses everything and writes nothing. Open
 **Execution log** and you should see a line like:
@@ -87,7 +104,7 @@ would import  2026-09-09  ₹70,000  (t_gm_199f2a1b3c4d5e6f)
 If the log says *"No Revolut transfer emails in the last 90d"*, there is nothing
 recent to find — send yourself a test or wait for the next real one.
 
-### 5. Turn it on
+### 6. Turn it on
 
 Run **`installTrigger`** once. It now runs by itself once a day, at around
 09:00, for good. Nothing else to maintain until the token expires.
@@ -152,10 +169,12 @@ optimistic-concurrency dance [`js/github.js`](../js/github.js) does.
 
 | What you see | What it means |
 |---|---|
-| Email: *"the Revolut importer is failing"* | Something is wrong with GitHub — usually an expired token. Make a new one and run `setUp()` again. At most one a day. |
+| Email: *"the Revolut importer is failing"* | Something is wrong with GitHub — usually an expired token. Make a new one and update `SETU_TOKEN` in Script Properties. At most one a day. |
+| *"is a PUBLIC repository"* | `setu-data` is not private. Nothing will be written until it is. Fix this immediately. |
 | Email: *"Revolut email(s) need a look"* | It found something transfer-shaped it wouldn't import. The reason is in the email; the thread is labelled `setu/review`. |
 | *"ledger.json does not exist yet"* | The app has never synced. Open it on a phone once. |
 | *"The token lacks Contents: Read and write"* | The token is set to *Read*. |
+| *"SETU_REPO should look like owner/name"* | The script property is malformed. |
 | Nothing imports, no errors | Revolut changed the email. See below. |
 | Entry appeared with no £ | Working as intended — see the top of this page. |
 

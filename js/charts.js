@@ -11,6 +11,11 @@ import { inr, inrShort, prettyDate } from './store.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 
+/* Tooltips are built with innerHTML, and some of what goes in them comes from
+   ledger.json rather than from this file. */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 function el(name, attrs = {}) {
   const n = document.createElementNS(NS, name);
   for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
@@ -138,7 +143,7 @@ export function renderMonthlyChart(wrap, months) {
       p.style.opacity = +p.dataset.i === i ? '1' : '.3';
     });
     tip.innerHTML =
-      `<b>${m.label}</b>` +
+      `<b>${esc(m.label)}</b>` +
       `<span><i style="background:var(--in)"></i>Received<em>${inr(m.in)}</em></span>` +
       `<span><i style="background:var(--out)"></i>Spent<em>${inr(m.out)}</em></span>`;
     placeTip(tip, wrap, (slot * i + slot / 2 + pad.l) / W);
@@ -261,7 +266,7 @@ export function renderRateChart(wrap, series) {
     tip.innerHTML =
       `<b>${prettyDate(s.date)}</b>` +
       `<span>Rate<em>₹${s.rate.toFixed(2)} / £</em></span>` +
-      `<span>Via<em>${s.method}</em></span>`;
+      `<span>Via<em>${esc(s.method)}</em></span>`;
     placeTip(tip, wrap, x(best) / W);
   };
 

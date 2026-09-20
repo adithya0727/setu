@@ -6,6 +6,26 @@
 <title>Setu</title>
 <meta name="description" content="A private ledger for money sent home.">
 
+<!-- The access token lives in localStorage, so the thing worth defending against
+     is script injection: anything that could read it must also be unable to send
+     it anywhere. 'default-src none' means every kind of load has to be named
+     below, and connect-src names the only host this app may ever talk to.
+     Note frame-ancestors is ignored when CSP arrives in a meta tag rather than a
+     header, and GitHub Pages cannot set headers — see README. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self';
+  font-src 'self';
+  connect-src 'self' https://api.github.com;
+  manifest-src 'self';
+  worker-src 'self';
+  base-uri 'none';
+  form-action 'none';
+  frame-ancestors 'none'">
+<meta name="referrer" content="no-referrer">
+
 <!-- PWA -->
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#0B0D10" media="(prefers-color-scheme: dark)">

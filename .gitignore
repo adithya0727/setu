@@ -1,1 +1,10 @@
 .DS_Store
+
+# Guards, not features. Nothing here should ever exist in this repo — it is
+# public — but a stray copy of the ledger or a token file must not be one
+# `git add -A` away from being published permanently.
+ledger.json
+*.pat
+*.token
+.env
+.env.*

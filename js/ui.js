@@ -41,7 +41,8 @@ const ICONS = {
 };
 
 const icon = (name, cls = '') =>
-  `<svg viewBox="0 0 24 24" class="ico ${cls}" aria-hidden="true">${ICONS[name] || ICONS.dots}</svg>`;
+  `<svg viewBox="0 0 24 24" class="ico ${cls}" aria-hidden="true">${
+    Object.prototype.hasOwnProperty.call(ICONS, name) ? ICONS[name] : ICONS.dots}</svg>`;
 
 /* ─────────────────────────── tiny helpers ─────────────────────────── */
 
@@ -49,8 +50,13 @@ const $  = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const tint = key => `--tint:color-mix(in oklab, var(--${key}) 17%, transparent);--tint-ink:var(--${key})`;
-const dotOf = key => `background:var(--${key})`;
+/* Colour keys reach us from ledger.json, which is hand-editable and written by
+   two devices. They land inside style="…", where a stray quote would escape the
+   attribute entirely — so nothing but a known slot is ever interpolated. */
+const ckey = k => (/^c[1-9]$/.test(k) ? k : 'c9');
+
+const tint = key => `--tint:color-mix(in oklab, var(--${ckey(key)}) 17%, transparent);--tint-ink:var(--${ckey(key)})`;
+const dotOf = key => `background:var(--${ckey(key)})`;
 
 function haptic() { try { navigator.vibrate?.(8); } catch { /* not supported */ } }
 
@@ -265,7 +271,7 @@ function entryRow(item) {
     const p = (item.allocations || [])[0];
     const pu = p && purpose(p.purposeId);
     return `
-      <button class="row" data-open-entry="${item.id}" data-kind="in">
+      <button class="row" data-open-entry="${esc(item.id)}" data-kind="in">
         <span class="row-icon" style="${tint('c3')}">${icon('in')}</span>
         <span class="row-main">
           <span class="row-title">${esc(item.method || 'Transfer')}${pu ? ` · ${esc(pu.name)}` : ''}</span>
@@ -287,7 +293,7 @@ function entryRow(item) {
   const meta = [prettyDate(item.date), item.note ? c?.name : null, pu?.name]
     .filter(Boolean).map(esc).join(' · ');
   return `
-    <button class="row" data-open-entry="${item.id}" data-kind="out">
+    <button class="row" data-open-entry="${esc(item.id)}" data-kind="out">
       <span class="row-icon" style="${tint(c?.color || 'c9')}">${icon(c?.icon || 'dots')}</span>
       <span class="row-main">
         <span class="row-title">${esc(item.note || c?.name || 'Spent')}</span>
@@ -302,7 +308,7 @@ function entryRow(item) {
 function emptyState(iconName, title, body) {
   return `<div class="empty">
     <div class="empty-mark">${icon(iconName)}</div>
-    <h3>${esc(title)}</h3><p>${body}</p>
+    <h3>${esc(title)}</h3><p>${esc(body)}</p>
   </div>`;
 }
 
@@ -311,7 +317,7 @@ function ring(pct, colorKey) {
   const v = Math.max(0, Math.min(1, pct));
   return `<svg class="ring" viewBox="0 0 34 34" aria-hidden="true">
     <circle cx="17" cy="17" r="${r}" fill="none" stroke="var(--surface-3)" stroke-width="4"/>
-    <circle cx="17" cy="17" r="${r}" fill="none" stroke="var(--${colorKey})" stroke-width="4"
+    <circle cx="17" cy="17" r="${r}" fill="none" stroke="var(--${ckey(colorKey)})" stroke-width="4"
       stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - v)}"
       transform="rotate(-90 17 17)"/>
   </svg>`;
@@ -367,7 +373,7 @@ function viewHome() {
         ${active.map(p => {
           const st = purposeStats(S.ledger, p.id);
           const pct = st.allocated ? st.spent / st.allocated : 0;
-          return `<button class="purpose-chip" data-open-purpose="${p.id}">
+          return `<button class="purpose-chip" data-open-purpose="${esc(p.id)}">
             <span class="purpose-chip-top">
               ${ring(pct, p.color)}
               <span class="purpose-chip-name">${esc(p.name)}</span>
@@ -455,7 +461,7 @@ function viewActivity() {
       <button class="pill ${S.filter === 'in' ? 'on' : ''}" data-filter="in">Money in</button>
       <button class="pill ${S.filter === 'out' ? 'on' : ''}" data-filter="out">Spent</button>
       ${active.map(p => `<button class="pill ${S.filter === 'p:' + p.id ? 'on' : ''}"
-        data-filter="p:${p.id}">${esc(p.name)}</button>`).join('')}
+        data-filter="p:${esc(p.id)}">${esc(p.name)}</button>`).join('')}
     </div>
 
     <div id="feed-list">${feedMarkup(items)}</div>
@@ -496,13 +502,13 @@ function viewPurposes() {
       const st = purposeStats(S.ledger, p.id);
       const pct = st.allocated ? Math.min(1, st.spent / st.allocated) : 0;
       return `
-        <button class="card card-pad" data-open-purpose="${p.id}" style="display:block;width:100%;text-align:left">
+        <button class="card card-pad" data-open-purpose="${esc(p.id)}" style="display:block;width:100%;text-align:left">
           <div style="display:flex;align-items:center;gap:11px;margin-bottom:13px">
             <span class="cat-dot" style="${dotOf(p.color)};width:11px;height:11px;border-radius:4px"></span>
             <span style="font-size:16px;font-weight:620;letter-spacing:-.02em;flex:1">${esc(p.name)}</span>
             <span class="num" style="font-size:16px;font-weight:650">${inr(st.remaining)}</span>
           </div>
-          <div class="bar" style="--tint:var(--${p.color})"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
+          <div class="bar" style="--tint:var(--${ckey(p.color)})"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
           <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12.5px;color:var(--ink-3)">
             <span class="num">${inr(st.spent)} spent</span>
             <span class="num">${inr(st.allocated)} set aside</span>
@@ -591,7 +597,7 @@ function viewInsights() {
             <span class="cat-val num">${inr(c.value)}<span class="cat-pct num">${
               ((c.value / (t.spent || 1)) * 100).toFixed(0)}%</span></span>
           </div>
-          <div class="bar" style="--tint:var(--${c.color})">
+          <div class="bar" style="--tint:var(--${ckey(c.color)})">
             <i style="width:${((c.value / maxCat) * 100).toFixed(1)}%"></i>
           </div>
         </div>`).join('')
@@ -603,20 +609,42 @@ function viewInsights() {
 /* ═══════════════════════════ sheets ═══════════════════════════ */
 
 let closeSheetFn = null;
+let teardown = null;   // the pending hide from the sheet that is animating out
+let sheetGen = 0;      // which sheet currently owns the shared element
 
+/**
+ * One sheet element is reused for every sheet, so opening a second one while
+ * the first is still animating out needs care: the outgoing sheet's teardown
+ * would otherwise fire ~120ms later and hide the incoming one. That is what
+ * made “Edit” look like it opened and instantly closed again.
+ */
 function openSheet(html, onMount) {
   const sheet = $('#sheet'), scrim = $('#scrim'), body = $('#sheet-body');
+
+  clearTimeout(teardown);
+  teardown = null;
+
+  const gen = ++sheetGen;
+
   body.innerHTML = html;
   body.scrollTop = 0;
   sheet.hidden = false; scrim.hidden = false;
+  sheet.style.transform = '';
   requestAnimationFrame(() => { sheet.classList.add('on'); scrim.classList.add('on'); });
 
   const close = () => {
+    // A close captured by the previous sheet's handlers must not close this one.
+    if (gen !== sheetGen) return;
+
     sheet.classList.remove('on'); scrim.classList.remove('on');
-    setTimeout(() => {
+    clearTimeout(teardown);
+    teardown = setTimeout(() => {
+      teardown = null;
+      if (gen !== sheetGen) return;        // something else opened in the meantime
       sheet.hidden = true; scrim.hidden = true; body.innerHTML = '';
       sheet.style.transform = '';
     }, 380);
+
     scrim.removeEventListener('click', close);
     closeSheetFn = null;
   };
@@ -760,7 +788,7 @@ function entryBody(d) {
         <div class="grid-pick" id="cats">
           ${S.ledger.categories.map(c => `
             <button type="button" class="pick ${d.categoryId === c.id ? 'on' : ''}"
-                    data-cat="${c.id}" style="--tint:var(--${c.color})">
+                    data-cat="${esc(c.id)}" style="--tint:var(--${ckey(c.color)})">
               ${icon(c.icon)}<span>${esc(c.name)}</span>
             </button>`).join('')}
         </div>
@@ -783,7 +811,7 @@ function entryBody(d) {
                 style="--tint:var(--c9)">${icon('wallet')}<span>General</span></button>
         ${purposes.map(p => `
           <button type="button" class="pick ${d.purposeId === p.id ? 'on' : ''}"
-                  data-purpose="${p.id}" style="--tint:var(--${p.color})">
+                  data-purpose="${esc(p.id)}" style="--tint:var(--${ckey(p.color)})">
             ${icon('flag')}<span>${esc(p.name)}</span>
           </button>`).join('')}
       </div>
@@ -801,7 +829,7 @@ function entryBody(d) {
       <div style="display:flex;gap:8px;align-items:center">
         <button type="button" class="pill ${d.date === today() ? 'on' : ''}" data-date="today">Today</button>
         <button type="button" class="pill ${d.date === yesterday() ? 'on' : ''}" data-date="yest">Yesterday</button>
-        <input type="date" id="date-in" class="f-input" value="${d.date}"
+        <input type="date" id="date-in" class="f-input" value="${esc(d.date)}"
                style="flex:1;padding:9px 11px;font-size:14px" max="${today()}">
       </div>
     </div>
@@ -982,7 +1010,7 @@ function openPurposeSheet(id) {
       <div class="detail-sub">${esc(p.name)} · ${st.allocated ? `${inr(st.spent)} of ${inr(st.allocated)} used` : 'nothing set aside yet'}</div>
     </div>
 
-    <div class="bar" style="--tint:var(--${p.color})"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
+    <div class="bar" style="--tint:var(--${ckey(p.color)})"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
 
     <div class="f-block">
       <div class="f-label">Activity <span class="opt">${items.length}</span></div>
@@ -1033,7 +1061,7 @@ function openPurposeEditSheet(id) {
       <div style="display:flex;gap:10px;flex-wrap:wrap" id="p-colors">
         ${PURPOSE_COLORS.map(c => `
           <button type="button" data-color="${c}" aria-label="${c}"
-            style="width:38px;height:38px;border-radius:12px;background:var(--${c});
+            style="width:38px;height:38px;border-radius:12px;background:var(--${ckey(c)});
                    border:2.5px solid ${c === d.color ? 'var(--ink)' : 'transparent'}"></button>`).join('')}
       </div>
     </div>

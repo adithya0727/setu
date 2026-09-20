@@ -31,6 +31,41 @@ timestamped history of the ledger. Nothing is ever really lost.
 
 ---
 
+## What protects the data
+
+The whole design rests on one thing: **the numbers live in a private repo, and
+the only way to reach them is a token.** So that is what gets defended.
+
+**The app refuses to talk to a public repo.** Before connecting, and once on
+every launch afterwards, it asks GitHub whether the repo is private and stops
+if it isn't. This is the mistake that would matter most — a public `setu-data`
+publishes every figure to anyone who finds it, and deleting the file afterwards
+does not remove it from the history.
+
+**A stolen token can't be sent anywhere.** The token sits in `localStorage`, so
+the real risk is script injection: anything that could read it must be unable to
+transmit it. A strict [Content-Security-Policy](index.html) allows scripts only
+from this origin and network connections only to `api.github.com`. Even if
+hostile markup reached the page, there is nowhere for it to send what it found.
+
+**Nothing from the ledger is treated as trustworthy markup.** Every value that
+comes out of `ledger.json` — names, notes, ids, colours, categories — is escaped
+or validated before it reaches the page, because that file is hand-editable and
+written by two devices.
+
+**No secret is ever in this repo.** The importer reads its token from Google's
+Script Properties, never from its own source, and [`.gitignore`](.gitignore)
+blocks the file patterns that would matter if one ever landed here by accident.
+
+Two things remain true and are worth knowing rather than forgetting. Anyone
+holding the token has the data, so treat it as the password it is — revoke it on
+GitHub if a phone goes missing, which takes seconds and breaks nothing else. And
+`frame-ancestors` can only be set in a real HTTP header, which GitHub Pages does
+not allow, so the page cannot forbid being framed by another site; this does not
+expose any data, because a framing page still cannot read across origins.
+
+---
+
 ## Setting it up
 
 ### 1. The private data repo
@@ -115,6 +150,7 @@ phones pick up the new version instead of the cached one.
 
 | What you see | What it means |
 |---|---|
+| "… is public" | `setu-data` is not private. Setu refuses to read or write it until it is. |
 | "That token was rejected" | The token expired. Generate a new one and reconnect. |
 | "The token lacks permission" | Contents is set to *Read*, not *Read and write*. |
 | "Repository not found" | Check the `owner/name` spelling, and that the token lists `setu-data`. |

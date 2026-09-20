@@ -53,7 +53,7 @@ const FILE   = 'ledger.json';
    means a subject-line rewording on their side can't silently stop imports. */
 const QUERY = 'from:no-reply@revolut.com (subject:"been sent" OR "has sent you a transfer")';
 
-/* ═══════════════════════ the four things you run ═══════════════════════ */
+/* ═══════════════════════ the things you run by hand ═══════════════════════ */
 
 /** Trigger target. Safe to run by hand at any time. */
 function importTransfers() {
@@ -74,14 +74,36 @@ function dryRun() {
   run(true);
 }
 
-/** Stores your repo and token. Fill in the two strings, run once, then delete them. */
-function setUp() {
-  const repo  = '';                        // e.g. 'adithya0727/setu-data'
-  const token = '';                        // github_pat_…
+/**
+ * Confirms the script can reach the repo, that the repo is *private*, and that
+ * the token can write to it. Run it once after setting the two properties.
+ *
+ * Those properties are set in the editor — Project Settings (the gear) →
+ * Script Properties — and deliberately never in this file. A token pasted into
+ * code is one careless commit away from being public, and this file lives in a
+ * public repo.
+ */
+function checkSetup() {
+  assertRepoPrivate();
+  Logger.log('%s is private, and the token can write to it. Now run dryRun().', repo());
+}
 
-  if (!repo || !token) throw new Error('Fill in repo and token inside setUp() before running it.');
-  PropertiesService.getScriptProperties().setProperties({ SETU_REPO: repo.trim(), SETU_TOKEN: token.trim() });
-  Logger.log('Saved. Now clear the two strings out of setUp() and run installTrigger().');
+/**
+ * The ledger must never be written into a public repo. Nothing else here can
+ * tell the difference, and the mistake is irreversible — git keeps the figures
+ * even after the file is deleted. Checked on every run, not just at setup,
+ * because a repo can be flipped to public long after it was connected.
+ */
+function assertRepoPrivate() {
+  const meta = JSON.parse(gh('GET', '/repos/' + repo()).text);
+
+  if (meta.private !== true) {
+    throw new Error(repo() + ' is a PUBLIC repository. Refusing to write the ledger to it — ' +
+      'everything in it would be readable by anyone. Make the repo private.');
+  }
+  if (!(meta.permissions && meta.permissions.push)) {
+    throw new Error('The token can read ' + repo() + ' but not write to it. Set Contents to Read and write.');
+  }
 }
 
 /** Installs (or reinstalls) the once-a-day trigger. */
@@ -97,6 +119,8 @@ function installTrigger() {
 /* ═══════════════════════════ the run itself ═══════════════════════════ */
 
 function run(dry) {
+  assertRepoPrivate();
+
   const threads = GmailApp.search(`${QUERY} newer_than:${CONFIG.window}`, 0, 50);
   if (!threads.length) {
     Logger.log('No Revolut transfer emails in the last %s.', CONFIG.window);
@@ -322,7 +346,13 @@ const pad = n => (n < 10 ? '0' : '') + n;
    newline), so a commit from here and a commit from the phone produce the
    same kind of diff.                                                        */
 
-function repo()  { return required('SETU_REPO'); }
+function repo() {
+  const r = required('SETU_REPO');
+  if (!/^[\w.-]+\/[\w.-]+$/.test(r)) {
+    throw new Error('SETU_REPO should look like owner/name — got “' + r + '”.');
+  }
+  return r;
+}
 function token() { return required('SETU_TOKEN'); }
 
 function required(key) {
