@@ -146,6 +146,13 @@ const purpose = id => S.ledger.purposes.find(p => p.id === id);
 /* ─────────────────────────── boot ─────────────────────────── */
 
 function boot() {
+  try {
+    if (sessionStorage.getItem(UPDATED_FLAG)) {
+      sessionStorage.removeItem(UPDATED_FLAG);
+      setTimeout(() => toast('Updated to the latest version'), 700);
+    }
+  } catch { /* private mode */ }
+
   if (!cfg.ready) return showSetup();
   S.ledger = local.ledger || emptyLedger();
   $('#app').hidden = false;
@@ -736,6 +743,7 @@ function openSheet(html, onMount) {
       if (gen !== sheetGen) return;        // something else opened in the meantime
       sheet.hidden = true; scrim.hidden = true; body.innerHTML = '';
       sheet.style.transform = '';
+      applyUpdateIfIdle();          // one may have been waiting on this sheet
     }, 380);
 
     scrim.removeEventListener('click', close);
@@ -1354,6 +1362,19 @@ function openSettingsSheet() {
     </div>
 
     <div class="f-block">
+      <div class="f-label">App</div>
+      <div class="card">
+        <button type="button" class="set-row" id="s-update">
+          <div class="set-row-main">
+            <div class="set-row-t">Check for updates</div>
+            <div class="set-row-s" id="s-version">Checking…</div>
+          </div>
+          ${icon('chev', 'chev')}
+        </button>
+      </div>
+    </div>
+
+    <div class="f-block">
       <div class="f-label">Appearance</div>
       <div class="seg" id="s-theme">
         ${THEMES.map(t => `<button type="button" class="${themePref() === t ? 'on' : ''}" data-t="${t}">${
@@ -1469,6 +1490,19 @@ function openSettingsSheet() {
       location.reload();
     });
 
+    serviceWorkerVersion().then(v => {
+      const el = $('#s-version');
+      if (el) el.textContent = `Running ${v}`;
+    });
+
+    $('#s-update').addEventListener('click', async () => {
+      toast('Checking for updates…');
+      await checkForUpdate();
+      // Reload regardless: if a new worker installed, this adopts it; if not,
+      // nothing is lost. Either way there is no ritual involving the icon.
+      setTimeout(() => { reloading = true; location.reload(); }, 900);
+    });
+
     $('#s-theme').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       setTheme(b.dataset.t);
@@ -1487,9 +1521,76 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && cfg.ready) refresh({ silent: true });
 });
 
+/* ─────────────────────────── staying current ───────────────────────────
+   A home-screen app on iOS resumes; it does not navigate. Nothing fires `load`
+   again, so nothing ever asks whether a newer service worker exists, and the
+   app can sit on a build from weeks ago — which is why deleting the icon and
+   re-adding it was the only thing that worked.
+
+   So: ask on every return to the foreground, and when a new worker takes over,
+   reload once so the page stops running the old code it still holds in memory. */
+
+const UPDATED_FLAG = 'setu.justUpdated';
+
+let updateReady = false;
+let reloading = false;
+
+/** Replaced below when the browser supports service workers. */
+let checkForUpdate = async () => {};
+
+function applyUpdateIfIdle() {
+  if (!updateReady || reloading) return;
+  // Never pull the page out from under a half-typed entry.
+  if (!$('#sheet').hidden) return;
+
+  reloading = true;
+  try { sessionStorage.setItem(UPDATED_FLAG, '1'); } catch { /* private mode */ }
+  location.reload();
+}
+
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () =>
-    navigator.serviceWorker.register('./sw.js').catch(() => { /* offline support is optional */ }));
+  // On the very first visit there is no old version to replace, so claiming
+  // control is not news and must not trigger a reload.
+  const hadController = !!navigator.serviceWorker.controller;
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return;
+    updateReady = true;
+    applyUpdateIfIdle();
+  });
+
+  let lastCheck = 0;
+  checkForUpdate = async () => {
+    if (Date.now() - lastCheck < 20000) return;      // once every 20s is plenty
+    lastCheck = Date.now();
+    try { (await navigator.serviceWorker.getRegistration())?.update(); }
+    catch { /* offline, or no registration yet */ }
+  };
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => checkForUpdate())
+      .catch(() => { /* offline support is optional */ });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    applyUpdateIfIdle();                             // one was ready but a sheet was open
+    checkForUpdate();
+  });
+}
+
+/** Which worker is actually serving this page, asked rather than assumed. */
+function serviceWorkerVersion() {
+  const ctrl = navigator.serviceWorker?.controller;
+  if (!ctrl) return Promise.resolve('not installed');
+  return new Promise(resolve => {
+    const ch = new MessageChannel();
+    const done = setTimeout(() => resolve('unknown'), 1500);
+    ch.port1.onmessage = e => { clearTimeout(done); resolve(String(e.data)); };
+    try { ctrl.postMessage('version', [ch.port2]); }
+    catch { clearTimeout(done); resolve('unknown'); }
+  });
 }
 
 applyTheme();

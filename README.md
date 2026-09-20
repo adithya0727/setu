@@ -143,6 +143,7 @@ There is no build step and no framework, so the checks are just node:
 ```
 node test/css.test.mjs              # the stylesheet still has the rules everything leans on
 node test/sync.test.mjs             # an entry saved mid-push must not be lost
+node test/update.test.mjs           # the self-reload can't loop or interrupt an entry
 node automation/test/parse.test.js  # the Revolut email parser
 ```
 
@@ -157,8 +158,15 @@ missing once, which quietly inflated every element in the app.
 Change the files in this folder, then in GitHub Desktop: **Commit to main** →
 **Push origin**. The live site updates within a minute or so.
 
-If you change any file under `js/` or `css/`, bump `VERSION` in [`sw.js`](sw.js) so
-phones pick up the new version instead of the cached one.
+If you change any file under `js/` or `css/`, bump `VERSION` in [`sw.js`](sw.js).
+That string is what tells a phone something has changed: the app asks for a new
+`sw.js` every time it comes to the foreground, and a different `VERSION` is what
+makes the browser treat it as new. Forget the bump and phones will keep serving
+the old build no matter how many times the site is redeployed.
+
+**Settings → Check for updates** shows which version a phone is actually running
+and forces a reload, so you never need to delete the Home Screen icon to get a
+change onto it.
 
 ---
 

@@ -6,7 +6,7 @@
    apart. Offline edits are queued in localStorage by github.js instead.
    ═══════════════════════════════════════════════════════════════ */
 
-const VERSION = 'setu-v9';
+const VERSION = 'setu-v10';
 const SHELL = [
   './',
   './index.html',
@@ -25,9 +25,19 @@ const SHELL = [
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(VERSION)
-      .then(c => c.addAll(SHELL))
+      /* `cache: 'reload'` is load-bearing. addAll otherwise goes through the
+         browser's HTTP cache, and GitHub Pages asks it to keep files for ten
+         minutes — so a newly installed version could precache the previous
+         version's files and then serve them as though they were current. */
+      .then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
+});
+
+/* Lets the app show which version is actually serving it, so "did the update
+   land?" has an answer that isn't guesswork. */
+self.addEventListener('message', e => {
+  if (e.data === 'version') e.ports[0]?.postMessage(VERSION);
 });
 
 self.addEventListener('activate', e => {
@@ -46,9 +56,16 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
 
-  // Network first, falling back to the cached shell when offline.
+  /* Network first, falling back to the cached shell when offline. Sub-resources
+     go past the HTTP cache for the same reason as above: a file deployed a
+     minute ago must not be shadowed by the copy Pages told the browser to hold
+     on to. Navigations can't carry a cache mode, so they go as they are. */
+  const fromNetwork = e.request.mode === 'navigate'
+    ? fetch(e.request)
+    : fetch(e.request, { cache: 'reload' });
+
   e.respondWith(
-    fetch(e.request)
+    fromNetwork
       .then(res => {
         // Never cache a failure. A transient 404 or 502 from Pages would
         // otherwise be served from the cache until the next version bump.
