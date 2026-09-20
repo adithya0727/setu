@@ -606,6 +606,24 @@ function viewInsights() {
   `;
 }
 
+/* ─────────────────── deleting things ───────────────────
+   Both live in two places each — the detail sheet you land on from any list,
+   and the edit sheet behind it — so the wording and the op stay in one place. */
+
+function confirmDeleteEntry(id, kind, close) {
+  if (!confirm('Delete this entry? The change is recorded in the repo history, so it can be recovered.')) return;
+  save({ type: 'delete', entity: kind === 'in' ? 'transfer' : 'expense', id });
+  close();
+  toast('Entry deleted');
+}
+
+function confirmDeletePurpose(id, name, close) {
+  if (!confirm(`Delete “${name}”? Entries tagged to it move back to the general pool — none of them are deleted.`)) return;
+  save({ type: 'delete', entity: 'purpose', id });
+  close();
+  toast('Purpose deleted');
+}
+
 /* ═══════════════════════════ sheets ═══════════════════════════ */
 
 let closeSheetFn = null;
@@ -898,12 +916,8 @@ function wireEntryBody(d, paint, close, existing) {
 
   body.querySelector('#cancel-entry')?.addEventListener('click', close);
 
-  body.querySelector('#del-entry')?.addEventListener('click', () => {
-    if (!confirm('Delete this entry? The change is recorded in the repo history, so it can be recovered.')) return;
-    save({ type: 'delete', entity: d.kind === 'in' ? 'transfer' : 'expense', id: d.id });
-    close();
-    toast('Entry deleted');
-  });
+  body.querySelector('#del-entry')?.addEventListener('click',
+    () => confirmDeleteEntry(d.id, d.kind, close));
 
   body.querySelector('#save-entry').addEventListener('click', () => {
     const amount = parseFloat(d.inr) || 0;
@@ -983,12 +997,14 @@ function openDetailSheet(id, kind) {
       <button type="button" class="btn-ghost" id="d-close">Close</button>
       <button type="button" class="btn-primary" id="d-edit">Edit</button>
     </div>
+    <button type="button" class="btn-ghost btn-danger btn-wide" id="d-del">Delete entry</button>
   `, close => {
     $('#d-close').addEventListener('click', close);
     $('#d-edit').addEventListener('click', () => {
       close();
       setTimeout(() => openEntrySheet(item, kind), 260);
     });
+    $('#d-del').addEventListener('click', () => confirmDeleteEntry(item.id, kind, close));
   });
 }
 
@@ -1024,8 +1040,10 @@ function openPurposeSheet(id) {
       <button type="button" class="btn-ghost" id="p-close">Close</button>
       <button type="button" class="btn-primary" id="p-edit">Edit purpose</button>
     </div>
+    <button type="button" class="btn-ghost btn-danger btn-wide" id="pd-del">Delete purpose</button>
   `, close => {
     $('#p-close').addEventListener('click', close);
+    $('#pd-del').addEventListener('click', () => confirmDeletePurpose(id, p.name, close));
     $('#p-edit').addEventListener('click', () => {
       close();
       setTimeout(() => openPurposeEditSheet(id), 260);
@@ -1086,12 +1104,8 @@ function openPurposeEditSheet(id) {
       haptic();
     });
     $('#p-cancel')?.addEventListener('click', close);
-    $('#p-del')?.addEventListener('click', () => {
-      if (!confirm(`Delete “${existing.name}”? Entries tagged to it move back to the general pool.`)) return;
-      save({ type: 'delete', entity: 'purpose', id });
-      close();
-      toast('Purpose deleted');
-    });
+    $('#p-del')?.addEventListener('click',
+      () => confirmDeletePurpose(id, existing.name, close));
     $('#p-save').addEventListener('click', () => {
       const name = nameEl.value.trim();
       if (!name) return toast('Give the purpose a name', true);

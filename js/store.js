@@ -35,10 +35,9 @@ export const SEED_CATEGORIES = [
   { id: 'c_other',     name: 'Other',     icon: 'dots',     color: 'c9' },
 ];
 
-export const SEED_PURPOSES = [
-  { id: 'p_rakhi', name: 'Rakhi', color: 'c5', archived: false },
-  { id: 'p_pooja', name: 'Pooja', color: 'c4', archived: false },
-];
+/* Deliberately empty. A purpose is something you decide on, not something the
+   app guesses at — a new ledger starts with none and you add what you need. */
+export const SEED_PURPOSES = [];
 
 export function emptyLedger() {
   return {

@@ -42,13 +42,17 @@
   --shadow-lift: 0 2px 6px rgba(0,0,0,.45), 0 18px 48px rgba(0,0,0,.5);
 
   --sp:  16px;
-  --tabh: 58px;
+  --tabh: 54px;
 
   --ease:   cubic-bezier(.32,.72,0,1);
   --spring: cubic-bezier(.22,1.2,.36,1);
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
+  /* The home indicator needs clearing, but not by the whole 34px iOS reports:
+     the indicator itself is a few pixels sitting ~8px off the edge. Reserving
+     all of it leaves the tab icons visibly stranded up the screen. */
+  --tab-inset: max(calc(var(--safe-b) - 8px), 0px);
   --safe-l: env(safe-area-inset-left, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
 }
@@ -93,6 +97,7 @@
 html, body {
   margin: 0; padding: 0;
   height: 100%;
+  min-height: 100dvh;
   background: var(--bg);
   color: var(--ink);
   overscroll-behavior: none;
@@ -246,7 +251,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   overflow-y: auto; -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   padding: calc(var(--safe-t) + 12px) calc(var(--sp) + var(--safe-r))
-           calc(var(--tabh) + var(--safe-b) + 34px) calc(var(--sp) + var(--safe-l));
+           calc(var(--tabh) + var(--tab-inset) + 34px) calc(var(--sp) + var(--safe-l));
 }
 
 .refresh-hint {
@@ -283,9 +288,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-  display: flex; align-items: flex-start;
-  height: calc(var(--tabh) + var(--safe-b));
-  padding: 0 calc(6px + var(--safe-r)) var(--safe-b) calc(6px + var(--safe-l));
+  display: flex; align-items: center;
+  height: calc(var(--tabh) + var(--tab-inset));
+  padding: 0 calc(6px + var(--safe-r)) var(--tab-inset) calc(6px + var(--safe-l));
   background: color-mix(in oklab, var(--bg) 78%, transparent);
   backdrop-filter: saturate(180%) blur(22px);
   -webkit-backdrop-filter: saturate(180%) blur(22px);
@@ -294,7 +299,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .tab {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 8px 2px 0;
+  padding: 0 2px;
   color: var(--ink-3);
   transition: color .18s, transform .12s var(--ease);
 }
@@ -645,6 +650,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .btn-ghost:active { transform: scale(.975); background: var(--surface-3); }
 .btn-danger { color: var(--out-text); background: var(--out-soft); }
 .sheet-actions .btn-primary { flex: 1.4; }
+/* Destructive actions get their own row rather than a slot beside Close —
+   nobody should delete a transfer by reaching for the button next to it. */
+.btn-wide { display: block; width: 100%; margin-top: 10px; }
 
 /* detail sheet */
 .detail-hero { text-align: center; padding: 6px 0 20px; }
@@ -742,7 +750,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 
 .toast {
   position: fixed; z-index: 70;
-  left: 50%; bottom: calc(var(--tabh) + var(--safe-b) + 18px);
+  left: 50%; bottom: calc(var(--tabh) + var(--tab-inset) + 18px);
   transform: translate(-50%, 14px);
   max-width: calc(100vw - 40px);
   padding: 11px 17px;
